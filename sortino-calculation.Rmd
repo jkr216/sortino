@@ -1,0 +1,127 @@
+---
+title: "Sortino ratio"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r setup}
+library(tidyverse)
+library(tidyquant)
+library(timetk)
+library(tibbletime)
+knitr::opts_chunk$set(message=FALSE, warning=FALSE)
+```
+
+```{r get stock prices function}
+# The symbols vector holds our tickers. 
+symbols <- c("SPY","EFA", "IJS", "EEM","AGG")
+
+# The prices object will hold our raw price data throughout this book.
+prices <- 
+  getSymbols(symbols, src = 'yahoo', from = "2005-01-01", 
+             auto.assign = TRUE, warnings = FALSE) %>% 
+  map(~Ad(get(.))) %>% 
+  reduce(merge) %>%
+  `colnames<-`(symbols)
+```
+
+
+
+In `xts`, convert daily prices to monthly returns.
+
+```{r}
+# XTS method
+prices_monthly <- to.monthly(prices, indexAt = "last", OHLC = FALSE)
+asset_returns_xts <- na.omit(Return.calculate(prices_monthly, method = "log"))
+```
+
+Choose weights
+
+```{r}
+w <- c(0.25, 0.25, 0.20, 0.20, 0.10)
+```
+
+To portfolio returns.
+
+```{r}
+portfolio_returns_xts <- Return.portfolio(asset_returns_xts, weights = w)
+```
+
+And to Sortino via the `SortinoRatio` function from the `PerformanceAnalytics` package. We supply the `xts` with portfolio returns and the Minimum Acceptable Rate, which we choose as .5%. Let's go ahead and assign a variable `MAR <- .005` so that we can use the `MAR` variable throughout this script.
+
+```{r}
+
+MAR <- .005
+
+sortino_xts <- SortinoRatio(portfolio_returns_xts, MAR = MAR)
+
+```
+
+```{r}
+# Tidyverse method, to long, tidy format
+asset_returns_long <- 
+  prices %>% 
+  to.monthly(indexAt = "last", OHLC = FALSE) %>% 
+  tk_tbl(preserve_index = TRUE, rename_index = "date") %>%
+  gather(asset, returns, -date) %>% 
+  group_by(asset) %>%  
+  mutate(returns = (log(returns) - log(lag(returns))))
+```
+
+Convert asset returns to portfolio returns. Very similar except we are in the tidyverse. It's wrapping the same function and weights. 
+
+```{r}
+
+portfolio_returns_tq <- asset_returns_long %>% 
+  tq_portfolio(assets_col = asset, 
+               returns_col = returns, 
+               weights = w,
+               col_rename = "returns")
+```
+
+
+$$Portfolio_{sortino} = \overline{(Portfolio_{Return}~-~MAR)}/\sqrt{\sum_{t=1}^n (R_t-MAR)^2}/n$$
+Here's the Latex code for that equation.
+
+```{r}
+#$$Portfolio_{sortino} = \overline{(Portfolio_{Return}~-~MAR)}/\sqrt{\sum_{t=1}^n (R_t-MAR)^2}/n$$
+```
+
+And to Sortino first by hand. 
+
+What is the logic behind this pipe? Let's follow the steps and note that we are trying to apply that equation above to our tibble. 
+
+First, we want to isolate the returns that are less than the MAR. These are the 'negative' returns whose volatility we want to use in the denominator. We will use `mutate(returns_negative = ifelse(returns < MAR, returns, 0))` to create a new column of that puts a 0 if the return is greater than/equal to the MAR and keeps the return if it is less than the MAR (we keep those returns as is so we can calculate the volatility). Next, we use `mutate(returns_excess = returns - MAR)` to create a column of returns minus the MAR. Our numerator is the mean of these differences.
+
+Finally, we calculate the Sortino Ratio using the equation above. Note that the denominator is called the 'Downside Deviation' in practice and we will label it as such in our tibble. It's not strictly necessary to calculate Downside Deviation here but it's helpful to compare it to the result from the built in `DownsidDeviation` function we used above or is it the one we will use below. 
+
+```{r}
+sortino_byhand <- portfolio_returns_tq %>% 
+  slice(-1) %>% 
+  #mutate(returns_excess = ifelse(returns > MAR, returns, 0)) %>%
+  mutate(returns_negative = ifelse(returns < MAR, returns, 0)) %>%
+  mutate(returns_excess = returns - MAR) %>% 
+  summarise(downside_deviation = sqrt(sum((returns_negative - MAR)^2)/nrow(.)),
+            mean_excess = mean(returns_excess),
+            sortino_byhand = mean_excess/downside_deviation)
+
+
+mean(Return.excess(portfolio_returns_xts, Rf = MAR))
+sortino_byhand$mean_excess
+
+DownsideDeviation(portfolio_returns_xts, MAR = MAR)
+```
+
+
+```{r}
+sortino_tq <- portfolio_returns_tq %>%
+  slice(-1) %>% 
+  tq_performance(Ra = returns, 
+                 performance_fun = SortinoRatio, 
+                 MAR = MAR,
+                 method = "full")
+```
+
+
+
