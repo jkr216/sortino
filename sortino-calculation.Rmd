@@ -1,6 +1,8 @@
 ---
 title: "Sortino Notebook"
 output:
+  html_document:
+    df_print: paged
   html_notebook: default
   pdf_document: default
 ---
@@ -17,7 +19,7 @@ $$Portfolio_{Sortino}=\frac{(\overline{Portfolio_{return}-MAR})}{\sqrt{\sum_{t=1
 
 The denominator in that equation (called the Downside Deviation, semi-deviation or downside risk) can be thought of as the deviation of the returns that fall below some target rate of return for the portfolio. That target rate is called the Minimum Acceptable Rate, or MAR.
 
-The theory behind the Sortino Ratio is that the riskiness of a portfolio is better measured by the deviation of returns *below* a target return, instead of by the standard deviation of all returns.  This stands in contradistinction to the more commonly used Sharpe Ratio, which measures return/risk by the ratio of the returns above the risk free rate divided by the standard deviation of *all* returns.  By way of history, Harry Markowitz, Nobel laureate and father of modern portfolio theory, noted that downside deviation might be a better measure of risk than the standard deviation of all returns, but its calculation was computationally too expensive[^1] (if he only he'd had R on his laptop).
+The theory behind the Sortino Ratio is that the riskiness of a portfolio is better measured by the deviation of returns *below* a target return, instead of by the standard deviation of all returns.  This stands in contradistinction to the more commonly used Sharpe Ratio, which measures return/risk by the ratio of the returns above the risk free rate divided by the standard deviation of *all* returns.  By way of history, Harry Markowitz, Nobel laureate and father of modern portfolio theory, noted that downside deviation might be a better measure of risk than the standard deviation of all returns, but its calculation was computationally too expensive[^1] (it was 1959, if he only he'd had R on his laptop).
 
 [^1]: Markowitz, Harry. Portfolio Selection: Efficient Diversification of Investments, John Wiley & Sons, 1959.
 
@@ -50,9 +52,9 @@ Let's load our packages:
 
 ```{r setup}
 # first install the packages if they are not already installed in your environment.
-#install.packages("tidyverse")
-#install.packages("tidyquant")
-#install.packages("timetk")
+# install.packages("tidyverse")
+# install.packages("tidyquant")
+# install.packages("timetk")
 
 library(tidyverse)
 library(tidyquant)
@@ -148,7 +150,7 @@ sortino_xts <-
 
 From a substantive perspective, we could stop here and start visualizing with `highcharter`. 
 
-Instead, we will next run the calculation by-hand, implementing the equation that was written above. Feel free to skip this section. I find it helpful to grind through the equation and make sure I can replicate the built-in function, but it's not necessary.
+Instead, we will run the calculation by-hand, implementing the equation for the Sortino Ratio via pipes and `dplyr`.  It's not a verbose piped workflow. In short, we call `summarise(ratio = mean(returns - MAR)/sqrt(sum(pmin(returns - MAR, 0)^2)/nrow(.)))`.  
 
 Note the use of `slice(-1)` to remove the first row. I want to delete that first 0.00 for January of 2005 to be consistent with the `xts` operations, but that is an important choice and one that could be questioned. Perhaps we should instead re-wrangle our `xts` object to make it consistent? Either way, we want to be explicit about the choice so that others can reproduce this work later.
 
@@ -189,6 +191,6 @@ sortino_tidy$ratio
 
 We have consistent results from `xts`, `tidyquant` and our by-hand piped calculation.  It might feel like a lot of work to get the same result three times but it forced us to look under the hood of the built-in functions and it might serve us well in the future should we have data or a project that fits better with one of the three methods.  
 
-Next time we will visualize the Sortino Ratio and its data slicing implications using `ggplot2` and `highcharter`. Thanks for reading.
+That's all for today. Next time we will visualize the Sortino Ratio and its data slicing implications using `ggplot2` and `highcharter`. Thanks for reading.
 
 
