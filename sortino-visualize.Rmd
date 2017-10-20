@@ -200,14 +200,14 @@ First, we need to calculate the rolling 6-month Sortino with `rollapply(portfoli
 ```{r}
 # calculate 6-month rolling Sortino
 sortino_roll_6 <- 
-  rollapply(portfolio_returns_xts, 6,function(x) SortinoRatio(x)) %>% 
+  rollapply(portfolio_returns_xts, 6,function(x) SortinoRatio(x, MAR = MAR)) %>% 
   `colnames<-`("6-rolling")
 
 sortino_roll_6[20:24]
 
 ```
 
-Take a quick peek at the rolling 6-month for the dates September of 2006 through January of 2007.  3 of the observations show an infinite Sortino! When we calculate Sortino over short time periods, strange results can occur. 
+Take a quick peek at the rolling 6-month for the dates September of 2006 through January of 2007.  What happened to cause that spike to 176! When we calculate Sortino over short time periods, strange results can occur. 
 
 Let's chart with `highcharter` and investigate other unusual occurrences when we slice the data.
 
@@ -220,13 +220,13 @@ highchart(type = "stock") %>%
   hc_scrollbar(enabled = FALSE)
 ```
 
-The rolling 6-month has so many bizarre spikes, e.g. a reading of 22 on August 9, 2009 and a reading of 30 on April 30, 2013 before breaching 100 in 2016! It nicely emphasizes how we need to be careful with the Sortino Ratio, short time periods and rolling applications.
+The rolling 6-month has so many bizarre spikes, e.g. a reading of 176 on January 31, 2007 and a reading of 9 on September 30, 2009 before breaching 100 in 2016! It nicely emphasizes how we need to be careful with the Sortino Ratio, short time periods and rolling applications.
 
 Let's see how the rolling 24-month compares.
 
 ```{r}
 sortino_roll_24 <- rollapply(portfolio_returns_xts, 24, 
-                           function(x) SortinoRatio(x))
+                           function(x) SortinoRatio(x, MAR = MAR))
 
 highchart(type = "stock") %>%
   hc_title(text = "Rolling Sortino") %>%
@@ -235,9 +235,9 @@ highchart(type = "stock") %>%
   hc_scrollbar(enabled = FALSE)
 ```
 
-Ah, much better. We can see the movements and how the Sortino has changed through the life of this portfolio, but within a reasonable range of 1.4 to -0.36.
+Ah, much better. We can see the movements and how the Sortino has changed through the life of this portfolio, but within a reasonable range of .6 to -0.4.
 
-The spikes and plunges are good markers for further investigation. The trough in 2009 is reflective of the credit crunch. What about the free fall at February of 2016? And the spike at end of 2013? 
+The spikes and plunges are good markers for further investigation. The trough in 2009 is reflective of the credit crunch. What about the free fall at February of 2016? And the rollercoaster from May of 2013 to May of 2014? 
 
 Rolling Sortinos need to be handled with care but there are a few nice payoffs First, these charts force us and our end users to reflect on how time periods can affect Sortino to extremes. Be skeptical if someone reports a fantastic 6-month Sortino. Second, as an exploratory device, the rolling ratios highligh time periods deserving of more investigation.  Third, with Sortino (and Sharpe) Ratios, there's a temptation to look at the final number for a portfolio's life and judge it 'good' or 'bad'. These rolling visualizations can help reframe the analysis and look at how the portfolio behaved in different economic and market regimes.
 
