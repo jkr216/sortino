@@ -13,7 +13,11 @@ knitr::opts_chunk$set(message=FALSE, warning=FALSE)
 
 Today, we begin a project to build a Shiny application that allows a user to build a portfolio and calculate/visualize its Sortino Ratio. 
 
-The Sortino Ratio is a measure of the return/risk ratio of a portfolio.  It is calculated thusly:   
+The final app is viewable [here](https://jkr216.shinyapps.io/Sortino-Shiny/) but we'll spend the next 3 posts contructing that.
+
+By way of brief background and motivation for this projct, the Sortino Ratio is a measure of the return/risk ratio of a portfolio and is an important tool for evaluating the risk adjusted returns of a portfolio and the skill of the portfolio manager. A higher Sortino indicates a portfolio manager who is generating higher returns per unit of risk absorbed.  Identifying better performing portfolios and portfolio managers is crucial for quants, data scientist and analysts at banks, endowments, investment advisors, funds of funds, hedge funds - all enterprise-level participants in the world of asset management.  From a data science perspective, we want to accomplish this using a reproducible work flow and an appealing, digestible end product.  As someone who used to work in finance and now works at RStudio, I find a Sortino Ratio Shiny app to be a thrilling combination of portfolio theory, statistical analysis and data visualization. Let's get to it!
+
+The Sortino Ratio eqation is as follows:   
 
 $$Portfolio_{Sortino}=\frac{(\overline{Portfolio_{return}-MAR})}{\sqrt{\sum_{t=1}^n min(R_t-MAR,~0)^2}/n}$$
 
@@ -158,8 +162,7 @@ Note the use of `slice(-1)` to remove the first row. I want to delete that first
 sortino_byhand <- 
   portfolio_returns_tidy %>% 
   slice(-1) %>%
-  summarise(ratio = 
-              mean(returns - MAR)/sqrt(sum(pmin(returns - MAR, 0)^2)/nrow(.)))
+  summarise(ratio = mean(returns - MAR)/sqrt(sum(pmin(returns - MAR, 0)^2)/nrow(.)))
 
 
 sortino_byhand
