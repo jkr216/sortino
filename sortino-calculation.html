@@ -126,8 +126,8 @@ $(document).ready(function () {
 <p>The final app is viewable <a href="https://jkr216.shinyapps.io/Sortino-Shiny/">here</a> but we’ll spend the next 3 posts contructing that.</p>
 <p>By way of brief background and motivation for this projct, the Sortino Ratio is a measure of the return/risk ratio of a portfolio and is an important tool for evaluating the risk adjusted returns of a portfolio and the skill of the portfolio manager. A higher Sortino indicates a portfolio manager who is generating higher returns per unit of risk absorbed. Identifying better performing portfolios and portfolio managers is crucial for quants, data scientist and analysts at banks, endowments, investment advisors, funds of funds, hedge funds - all enterprise-level participants in the world of asset management. From a data science perspective, we want to accomplish this using a reproducible work flow and an appealing, digestible end product. As someone who used to work in finance and now works at RStudio, I find a Sortino Ratio Shiny app to be a thrilling combination of portfolio theory, statistical analysis and data visualization. Let’s get to it!</p>
 <p>The Sortino Ratio eqation is as follows:</p>
-<p><span class="math display">\[Portfolio_{Sortino}=\frac{(\overline{Portfolio_{return}-MAR})}{\sqrt{\sum_{t=1}^n min(R_t-MAR,~0)^2}/n}\]</span></p>
-<p>The denominator in that equation (called the Downside Deviation, semi-deviation or downside risk) can be thought of as the deviation of the returns that fall below some target rate of return for the portfolio. That target rate is called the Minimum Acceptable Rate, or MAR.</p>
+<p><span class="math display">\[Sortino~Ratio_{portfolio}=\frac{(\overline{Return_{portfolio}-MAR})}{\sqrt{\sum_{t=1}^n min(R_t-MAR,~0)^2}/n}\]</span></p>
+<p>The denominator in that equation (called the Downside Deviation, semi-deviation or downside risk) can be thought of as the deviation of the returns that fall below some target rate of return for the portfolio. That target rate is called the Minimum Acceptable Rate, or MAR. The numerator is the mean portfolio return minus the MAR and can be thought of as excess returns.</p>
 <p>The theory behind the Sortino Ratio is that the riskiness of a portfolio is better measured by the deviation of returns <em>below</em> a target return, instead of by the standard deviation of all returns. This stands in contradistinction to the more commonly used Sharpe Ratio, which measures return/risk by the ratio of the returns above the risk free rate divided by the standard deviation of <em>all</em> returns. By way of history, Harry Markowitz, Nobel laureate and father of modern portfolio theory, noted that downside deviation might be a better measure of risk than the standard deviation of all returns, but its calculation was computationally too expensive<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a> (it was 1959, if he only he’d had R on his laptop).</p>
 <p>Frank Sortino’s original article on downside deviation, “On the Use and Misuse of Downside Risk,” was published in the <a href="http://www.iijournals.com/doi/abs/10.3905/jpm.1996.35">Journal of Portfolio Management</a> in 1996 but you’ll need a paid subscription to access that.</p>
 <p>More background is available from the <a href="http://www.cmegroup.com/education/files/sortino-a-sharper-ratio.pdf">CME group</a>, <a href="http://www.redrockcapital.com/Sortino__A__Sharper__Ratio_Red_Rock_Capital.pdf">Red Rock Capital</a> and <a href="http://www.cfapubs.org/doi/pdf/10.2469/ipmn.v2012.n1.1">CFA pubs</a>.</p>
@@ -225,7 +225,7 @@ asset_returns_long &lt;-
 sortino_byhand</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["ratio"],"name":[1],"type":["dbl"],"align":["right"]}],"data":[{"1":"-0.06701866"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["ratio"],"name":[1],"type":["dbl"],"align":["right"]}],"data":[{"1":"-0.0678752"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <p>Now on to <code>tidyquant</code>, which allows us to apply the <code>SortinoRatio</code> function from <code>PerformanceAnalytics</code> to a <code>tibble</code>. As long as we are passing it the same data as we passed originally with the <code>xts</code> object, we expect the same result.</p>
@@ -239,11 +239,11 @@ sortino_byhand</code></pre>
   `colnames&lt;-`(&quot;ratio&quot;)</code></pre>
 <p>Let’s compare our 3 Sortino objects.</p>
 <pre class="r"><code>sortino_xts[1]</code></pre>
-<pre><code>## [1] -0.06701866</code></pre>
+<pre><code>## [1] -0.0678752</code></pre>
 <pre class="r"><code>sortino_byhand$ratio</code></pre>
-<pre><code>## [1] -0.06701866</code></pre>
+<pre><code>## [1] -0.0678752</code></pre>
 <pre class="r"><code>sortino_tidy$ratio</code></pre>
-<pre><code>## [1] -0.06701866</code></pre>
+<pre><code>## [1] -0.0678752</code></pre>
 <p>We have consistent results from <code>xts</code>, <code>tidyquant</code> and our by-hand piped calculation. It might feel like a lot of work to get the same result three times but it forced us to look under the hood of the built-in functions and it might serve us well in the future should we have data or a project that fits better with one of the three methods.</p>
 <p>That’s all for today. Next time we will visualize the Sortino Ratio and its data slicing implications using <code>ggplot2</code> and <code>highcharter</code>. Thanks for reading.</p>
 <div class="footnotes">

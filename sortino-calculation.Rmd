@@ -19,9 +19,9 @@ By way of brief background and motivation for this projct, the Sortino Ratio is 
 
 The Sortino Ratio eqation is as follows:   
 
-$$Portfolio_{Sortino}=\frac{(\overline{Portfolio_{return}-MAR})}{\sqrt{\sum_{t=1}^n min(R_t-MAR,~0)^2}/n}$$
+$$Sortino~Ratio_{portfolio}=\frac{(\overline{Return_{portfolio}-MAR})}{\sqrt{\sum_{t=1}^n min(R_t-MAR,~0)^2}/n}$$
 
-The denominator in that equation (called the Downside Deviation, semi-deviation or downside risk) can be thought of as the deviation of the returns that fall below some target rate of return for the portfolio. That target rate is called the Minimum Acceptable Rate, or MAR.
+The denominator in that equation (called the Downside Deviation, semi-deviation or downside risk) can be thought of as the deviation of the returns that fall below some target rate of return for the portfolio. That target rate is called the Minimum Acceptable Rate, or MAR. The numerator is the mean portfolio return minus the MAR and can be thought of as excess returns. 
 
 The theory behind the Sortino Ratio is that the riskiness of a portfolio is better measured by the deviation of returns *below* a target return, instead of by the standard deviation of all returns.  This stands in contradistinction to the more commonly used Sharpe Ratio, which measures return/risk by the ratio of the returns above the risk free rate divided by the standard deviation of *all* returns.  By way of history, Harry Markowitz, Nobel laureate and father of modern portfolio theory, noted that downside deviation might be a better measure of risk than the standard deviation of all returns, but its calculation was computationally too expensive[^1] (it was 1959, if he only he'd had R on his laptop).
 
