@@ -1,0 +1,315 @@
+---
+title: "Sortino Shiny Write up"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup, message = FALSE, include = FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, eval=FALSE)
+```
+
+Welcome to part three in our series on the Sortino Ratio. By way of quick review, the [first post](https://www.datascience.com/blog/calculate-the-sortino-ratio) focused on calculating the Sortino Ratio and the [second post](https://www.datascience.com/blog/visualize-sortino-ratio) focused on visualizing the Sortino Ratio. Today, we will combine that previous work into a Shiny application that allows an end user to build a custom portfolio and visualize the Sortino Ratio interactively (if you're new to Shiny, there's lots of information, tutorials and examples at the Shiny homepage [here](shiny.rstudio.com)). We are going to lean heavily on the previous work and I recommend at least skimming through the previous posts before diving in here. Not only will it provide background on the substance and functions but it should also provide the motivation for the Shiny app. After spending a lot of time on the calculating and visualizing, Shiny allows us to share our work with a broader audience beyond other R coders. 
+
+Let's get to our Sortino Ratio Shiny app, the final version of which is available [here](http://www.reproduciblefinance.com/shiny/sortino-ratio/). And here is what the app looke like before a user clicks: 
+	
+[![Alt text](Appbeforeclick.png)](http://www.reproduciblefinance.com/shiny/sortino-ratio/)
+
+
+The full source code can be accessed via the aptly labeled 'source code' button at the top right of the app. Close readers will see that it was built in an Rmarkdown file (with output: flexdashboard::flexdashboard and runtime: shiny added to the YAML header).
+
+```{r}
+---
+title: "Sortino Ratio Shiny"
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    source_code: embed
+---
+```
+
+This app could have been built using the classical app.r file format, but I prefer to use a flexdashboard because it keeps the entire workflow in the Rmarkdown world. In the previous posts, we used Rmarkdown and code chunks to enforce logic on our data import, calculations and visualizations. This Shiny app follows the same code chunk structure and I find that the logic and functions translate well.
+
+We will review the substantive code in detail but we won't cover formatting features like how to create a new row or how to tab-set a row. The 'source code' button shows all the formatting code for the curious. 
+
+On to the substance where our first task is to build an input sidebar and enable users to choose five stocks and weights. We will use `textInput("stock1",...))` to create a space where the user can type a stock symbol and we will use `numericInput("w1",...)` to create a space where the user can enter a numeric weight.  Since we have 5 stocks and weights, we repeat this 5 times. Notice that the stock symbol field uses `textInput()` because the user needs to enter text and the weight field uses `numericInput()` because the user needs to enter a number.  
+
+  
+```{r}
+library(tidyverse)
+library(highcharter)
+library(tidyquant)
+library(timetk)
+
+fluidRow(
+  column(7,
+  textInput("stock1", "Stock 1", "SPY")),
+  column(5,
+  numericInput("w1", "Portf. %", 25, min = 1, max = 100))
+)  
+
+fluidRow(
+  column(7,
+  textInput("stock2", "Stock 2", "EFA")),
+  column(5,
+  numericInput("w2", "Portf. %", 25, min = 1, max = 100))
+)
+
+fluidRow(
+  column(7,
+  textInput("stock3", "Stock 3", "IJS")),
+  column(5,
+  numericInput("w3", "Portf. %", 20, min = 1, max = 100))
+)
+
+fluidRow(
+  column(7,
+  textInput("stock4", "Stock 4", "EEM")),
+  column(5,
+  numericInput("w4", "Portf. %", 20, min = 1, max = 100))
+)
+
+fluidRow(
+  column(7,
+  textInput("stock5", "Stock 5", "AGG")),
+  column(5,
+  numericInput("w5", "Portf. %", 10, min = 1, max = 100))
+)
+
+```
+
+Next, we give the end user the ability to choose a start date with `dateInput("date",...)`. 
+
+```{r}
+
+fluidRow(
+  column(7,
+  dateInput("date", "Starting Date", "2010-01-01", format = "yyyy-mm-dd"))
+)
+```
+
+And for the final inputs, let's have a row where the user can choose a MAR and the length of the rolling window. These are both numbers so we use `numericInput("mar",...)` and `numericInput("window",...)`. 
+
+```{r}
+
+fluidRow(
+  column(5,
+  numericInput("mar", "MAR%", .8, min = 0, max = 3, step = .01)),
+  column(5,
+  numericInput("window", "Window", 6, min = 2, max = 24, step = 2))
+)
+```
+
+Finally, we include a `submit` button for our end user. This button is what takes all those inputs and passes them on to our reactive functions so the Shiny engine can start doing its work. The app won't fire until the user clicks submit.
+
+```{r}
+
+actionButton("go", "Submit")
+```
+
+After our user clicks 'submit', the app will look like this: 
+
+[![Alt text](Appscatterplot.png)](http://www.reproduciblefinance.com/shiny/sortino-ratio/)
+
+This is a hugely important button because it enables the use of `eventReactives()` to control our computation. Let's have a look at that first `eventReaactive()` wherein we take the user-chosen stocks and grab their daily prices.
+
+```{r}
+prices <- eventReactive(input$go, {
+  
+  symbols <- c(input$stock1, input$stock2, input$stock3, input$stock4, input$stock5)
+  
+  getSymbols(symbols, src = 'yahoo', from = input$date, 
+             auto.assign = TRUE, warnings = FALSE) %>% 
+  map(~Ad(get(.))) %>% 
+  reduce(merge) %>%
+  `colnames<-`(symbols)
+})
+```
+
+The first line is tied back to our `submit()` button. The function starts with `prices <- eventReactive(input$go, {...` which means the function won't start firing until the submit button is clicked. The clicking of submit is the event that starts the reactivity. That's important because we don't want the reactive function to start firing whenever a user changes any of the inputs in our sidebar.  If this were a normal reactive, it would read `prices <- reactive({...` and it would start firing anytime one of our inputs changed. That would frustrate the end user!
+
+The substance of that function should look very familiar from the previous post where we imported prices from Yahoo! finance. The only difference is our ticker symbols are not hard coded, they are dependent on `input$stock1` through to `input$stock5` because the user is inputting the symbols.   
+
+Next, we use a similar  `eventReactive()` flow to assign the user-selected MAR.
+
+```{r}
+
+mar <- eventReactive(input$go, {input$mar})
+```
+
+We now have our daily prices and our MAR. Let's follow the workflow of our previous work on [calculating Sortino](https://www.datascience.com/blog/calculate-the-sortino-ratio) to find the rolling Sortino ratio and save it as an xts. 
+
+```{r}
+
+rolling_sortino <- eventReactive(input$go, {
+  
+validate(need(input$w1 + input$w2 + input$w3 + input$w4 + input$w5 == 100, 
+                "The portfolio weights must sum to 100%!"))
+  
+prices <- prices()
+w <- c(input$w1/100, input$w2/100, input$w3/100, input$w4/100, input$w5/100)
+MAR <- mar()
+window <- input$window
+
+prices_monthly <- to.monthly(prices, indexAt = "last", OHLC = FALSE)
+asset_returns_xts <- na.omit(Return.calculate(prices_monthly, method = "log"))
+
+portfolio_returns_xts_rebalanced_monthly <- Return.portfolio(asset_returns_xts, weights = w, rebalance_on = "months")
+
+rolling_sortino <-
+  rollapply(portfolio_returns_xts_rebalanced_monthly, window, 
+            function(x) SortinoRatio(x, MAR = MAR)) %>% 
+  `colnames<-`(paste(window, "-month rolling Sortino", sep=""))
+})
+```
+
+Note one crucial line in the above function, `validate(need(input$w1 + input$w2 + input$w3 + input$w4 + input$w5 == 100, "The portfolio weights must sum to 100%!"))`. This is where we ensure that the weights sum to 100. Toggle over to the live app and see what happens when the weights don't sum to 100. 
+
+Finally, we will calculate portfolio returns in tidy format as well so that we can use `ggplot()` for more visualizations. Again, we take the user inputs and perform our calculations in an `eventReactive()`. Notice that we are using the same name -  `portfolio_returns_tq_rebalanced_monthly` - for our returns object as we used in our previous work.  That's not necessary of course but it keeps things consistent.
+
+```{r}
+
+portfolio_returns_tq_rebalanced_monthly <- eventReactive(input$go, {
+  
+validate(need(input$w1 + input$w2 + input$w3 + input$w4 + input$w5 == 100, 
+                "The portfolio weights must sum to 100%!"))
+  
+prices <- prices()
+w <- c(input$w1/100, input$w2/100, input$w3/100, input$w4/100, input$w5/100)
+  
+asset_returns_long <- 
+      prices %>% 
+      to.monthly(indexAt = "last", OHLC = FALSE) %>% 
+      tk_tbl(preserve_index = TRUE, rename_index = "date") %>%
+      gather(asset, returns, -date) %>% 
+      group_by(asset) %>%  
+      mutate(returns = (log(returns) - log(lag(returns))))
+  
+MAR <- mar()
+
+portfolio_returns_tq_rebalanced_monthly <- 
+  asset_returns_long %>% 
+  tq_portfolio(assets_col = asset, 
+               returns_col = returns, 
+               weights = w,
+               col_rename = "returns",
+               rebalance_on = "months") %>% 
+  mutate(returns_below_MAR = ifelse(returns < MAR, returns, NA)) %>%
+  mutate(returns_above_MAR = ifelse(returns > MAR, returns, NA))
+
+})
+
+```
+
+Our substantive work has been completed and we now want to display the chart of the rolling Sortino Ratio.  Outside of Shiny, this would be a simple passing of the xts object to `highcharter`. 
+
+Shiny uses a custom function for building reactive highcharter charts called `renderHighchart()`.
+Once we invoke that `renderHighchart()`, our code looks very similar to our previous visualization work as we use `hc_add_series(rolling_sortino(), name = "Sortino", color = "cornflowerblue")` to add our rolling Sortino xts object to a chart.  
+
+```{r}
+renderHighchart({
+  highchart(type = "stock") %>%
+  hc_title(text = names(rolling_sortino())) %>%
+  hc_add_series(rolling_sortino(), name = names(rolling_sortino()), color = "cornflowerblue") %>%
+  hc_navigator(enabled = FALSE) %>% 
+  hc_scrollbar(enabled = FALSE) 
+})
+```
+
+Next, we use `ggplot()` to create a scatter plot, a histogram and a density chart of monthly returns. These will be nested in different tabs so the user can toggle between them and choose which is most helpful. 
+
+The flow for these is going to be the same: call the reactive function `renderPlot()`, pass in `mar()` and `portfolio_returns_tq_rebalanced_monthly()`, call `ggplot()` with the right `aes()` argument and then choose the appropriate `geom`. We will add plenty of aesthetics to make things more engaging but those are taken directly from our previous visualization work.
+
+Note that the `renderPlot()` function is playing the same role as `renderHighchart()` above - it is alerting the Shiny app that a reactive plot is forthcoming after user inputs, instead of a static plot that is unchanging.
+
+The scatter plot code chunk displays as this.
+
+[![Alt text](Appscatterplot.png)](http://www.reproduciblefinance.com/shiny/sortino-ratio/)
+
+And here is the code: 
+
+```{r}
+renderPlot({
+  
+  validate(need(input$go != 0, 
+          "Please choose your portfolio assets, weights, MAR, rolling window and 
+          start date and click submit."))
+  
+  MAR <- mar()
+  portfolio_returns_tq_rebalanced_monthly <- portfolio_returns_tq_rebalanced_monthly()
+  
+  portfolio_returns_tq_rebalanced_monthly %>% 
+  ggplot(aes(x = date)) +
+  geom_point(aes(y = returns_below_MAR), colour = "red") +
+  geom_point(aes(y = returns_above_MAR), colour = "green") + 
+  geom_vline(xintercept = as.numeric(as.Date("2016-11-30")), color = "blue") +
+  geom_hline(yintercept = MAR, color = "purple", linetype = "dotted") +
+  annotate(geom="text", x=as.Date("2016-11-30"), 
+           y = -.05, label = "Trump", fontface = "plain", 
+           angle = 90, alpha = .5, vjust =  1.5) +
+  ylab("percent monthly returns")
+})
+```
+
+For the histogram tab, the user sees this: 
+
+[![Alt text](Apphistogram.png)](http://www.reproduciblefinance.com/shiny/sortino-ratio/)
+
+Here is the histogram code chunk.
+
+```{r}
+renderPlot({
+  validate(need(input$go != 0, "Please choose your portfolio assets, weights, MAR, rolling window and start date and click submit."))
+  MAR <- mar()
+  portfolio_returns_tq_rebalanced_monthly <- portfolio_returns_tq_rebalanced_monthly()
+  
+  portfolio_returns_tq_rebalanced_monthly %>% 
+    ggplot(aes(x = returns)) +
+    geom_histogram(alpha = 0.25, binwidth = .01, fill = "cornflowerblue") +
+    geom_vline(xintercept = MAR, color = "green") +
+    annotate(geom = "text", x = MAR, 
+             y = 10, label = "MAR", fontface = "plain", 
+             angle = 90, alpha = .5, vjust =  1)
+})
+```
+
+And finally for the density tab, the user sees this: 
+
+[![Alt text](Appdensity.png)](http://www.reproduciblefinance.com/shiny/sortino-ratio/)
+
+Here is the density chart code chunk.
+
+```{r}
+renderPlot({
+  validate(need(input$go != 0, "Please choose your portfolio assets, weights, MAR, rolling window and start date and click submit."))
+  MAR <- mar()
+  portfolio_returns_tq_rebalanced_monthly <- portfolio_returns_tq_rebalanced_monthly()
+  
+  sortino_density_plot <- portfolio_returns_tq_rebalanced_monthly %>% 
+    ggplot(aes(x = returns)) +
+    stat_density(geom = "line", size = 1, color = "cornflowerblue") 
+  
+  shaded_area_data <- ggplot_build(sortino_density_plot)$data[[1]] %>% 
+    filter(x < MAR)
+
+  sortino_density_plot + 
+  geom_area(data = shaded_area_data, aes(x = x, y = y), fill="pink", alpha = 0.5) +
+  geom_segment(data = shaded_area_data, aes(x = MAR, y = 0, xend = MAR, yend = y), 
+               color = "red", linetype = "dotted") +
+  annotate(geom = "text", x = MAR, y = 5, label = paste("MAR =", MAR, sep = ""), 
+           fontface = "plain", angle = 90, alpha = .8, vjust =  -1) +
+  annotate(geom = "text", x = (MAR - .02), y = .1, label = "Downside", 
+           fontface = "plain", alpha = .8, vjust =  -1)
+           
+})
+
+```
+
+Have a quick look at the three previous chunks and notice the use of `validate(need(input$go != 0, "Please choose your portfolio assets, weights, MAR, rolling window and start date and click submit."))`. This is so when the user first opens the app and the submit button has not been activated, the user sees something besides white space.
+
+That completes our project on the Sortino Ratio. We didn't introduce any new functions or calculations in the Shiny app. We gave users a mechanism for building their own portfolios and time frames and passing them to the functions and visualizations that we already tested in our previous work. That was by design. The previous posts were meant to be a sandbox or a playground or whatever kindergarten-themed analogy signifies a place to experiment. The Shiny app's goal is to make that experimental work accessible to a broad audience of end users. 
+
+Thanks for reading and happy Shiny app'ing! 
+
